@@ -8,8 +8,6 @@ import com.amazonaws.services.simpledb.AmazonSimpleDB;
 import com.amazonaws.services.simpledb.AmazonSimpleDBClient;
 import com.amazonaws.services.simpledb.model.Attribute;
 import com.amazonaws.services.simpledb.model.CreateDomainRequest;
-import com.amazonaws.services.simpledb.model.GetAttributesRequest;
-import com.amazonaws.services.simpledb.model.GetAttributesResult;
 import com.amazonaws.services.simpledb.model.Item;
 import com.amazonaws.services.simpledb.model.ListDomainsResult;
 import com.amazonaws.services.simpledb.model.ReplaceableAttribute;
@@ -26,8 +24,6 @@ public class SimpleContacts {
 	private static Scanner scn = new Scanner(System.in);
 	private static AmazonSimpleDB simpleDBClient;
 	private static String selectedContactId;
-	private static String selectedContactFirst = "";
-	private static String selectedContactLast = "";
 	
 	public static void main(String[] args) {
 		//welcome the user and give them a chance to edit environment variables before continuing
@@ -234,10 +230,134 @@ public class SimpleContacts {
 	}
 	
 	private static void createNewContact() {
+		String first = "",
+				last = "",
+				phoneNumber = "",
+				phoneLabel = "",
+				emailAddress = "",
+				emailLabel = "",
+				streetAddress = "",
+				city = "",
+				state = "",
+				zip = "",
+				tag = "",
+				birthday = "";
+		
+		//lists of phone numbers/labels and email addresses/labels
+		List<String[]> phoneNumbers = new ArrayList<String[]>(),
+			emailAddresses = new ArrayList<String[]>();
+		
+		//list of tags
+		List<String> tags = new ArrayList<String>();
+			
+		//get the contact's first name
+		while (first.length() > 0) {
+			System.out.println("Enter the contact's first name (mandatory):");
+			first = scn.nextLine();
+		}
+		
+		//get the contact's last name
+		System.out.println("Enter the contact's last name (optional - just press enter to skip):");
+		last = scn.nextLine();
+		
+		//collect phone numbers/labels
+		do {
+			//reset variables
+			phoneNumber = "";
+			phoneLabel = "";
+			
+			System.out.println("Enter a phone number for this contact (optional - just press enter to skip):");
+			phoneNumber = scn.nextLine();
+			
+			//get a label for this phone number (or skip if the user is done entering phone numbers)
+			if (phoneNumber.length() > 0) {
+				//require a label for each phone number
+				while(tag.length() == 0) {
+					System.out.println("Enter a label for this phone number (e.g., home, work, cell)");
+					phoneLabel = scn.nextLine();
+				}
+				String[] phoneRecord = {phoneNumber, phoneLabel};
+				phoneNumbers.add(phoneRecord);
+			}
+		} while (phoneNumber.length() > 0);
+		
+		//collect email addresses/labels
+		do {
+			//reset variables
+			emailAddress = "";
+			emailLabel = "";
+			
+			System.out.println("Enter an email address for this contact (optional - just press enter to skip):");
+			emailAddress = scn.nextLine();
+			
+			//get a label for this email address (or skip if the user is done entering email addresses)
+			if (emailAddress.length() > 0) {
+				//require a label for each phone number
+				while(tag.length() == 0) {
+					System.out.println("Enter a label for this email address (e.g., personal, work, school)");
+					emailLabel = scn.nextLine();
+				}
+				
+				String[] emailRecord = {emailAddress, emailLabel};
+				phoneNumbers.add(emailRecord);
+			}
+		} while (emailAddress.length() > 0);
+		
+		//get contact's mailing address
+		System.out.println("Enter the street address for this contact (optional - just press enter to skip):");
+		streetAddress = scn.nextLine();
+		
+		//get contact's city
+		System.out.println("Enter the city for this contact (optional - just press enter to skip):");
+		city = scn.nextLine();
+		
+		//get contact's zip code
+		System.out.println("Enter the 5 digit zip code for this contact (optional - just press enter to skip):");
+		zip = scn.nextLine();
+		//TODO: validate 5 digits
+		
+		//get contact's birthday
+		System.out.println("Enter the birthday for this contact (optional - just press enter to skip):");
+		birthday = scn.nextLine();
+		//TODO: separate into month/day/year
+		
+		do {
+			System.out.println("Enter a tag for this user (optional - just press enter to skip):");
+			tag = scn.nextLine();
+			//TODO: add tags to list and reset variable
+		} while (tag.length() > 0);
+		List<ReplaceableItem> sampleData = new ArrayList<ReplaceableItem>();
+    	sampleData.add(new ReplaceableItem("Item_01").withAttributes(
+				new ReplaceableAttribute("First", "Samuel", true),
+				new ReplaceableAttribute("Last", "Henry", true),
+				new ReplaceableAttribute("Tag", "cool", true),
+				new ReplaceableAttribute("Tag", "smart", true),
+				new ReplaceableAttribute("Birthday", "5/18/1984", true)
+				));
+
+		createContactRecordInSimpleDB(first, last, phoneNumbers, emailAddresses, streetAddress, city, state, zip, tags, birthday);
+		createContactPageInS3(first, last, phoneNumbers, emailAddresses, streetAddress, city, state, zip, tags, birthday);
+	}
+	
+	private static void createContactPageInS3(String first, String last,
+			List<String[]> phoneNumbers, List<String[]> emailAddresses,
+			String streetAddress, String city, String state, String zip,
+			List<String> tags, String birthday) {
 		// TODO Auto-generated method stub
 		
 	}
-	
+
+	private static void createContactRecordInSimpleDB(String first,
+			String last, List<String[]> phoneNumbers,
+			List<String[]> emailAddresses, String streetAddress, String city,
+			String state, String zip, List<String> tags, String birthday) {
+		List<ReplaceableItem> newContact = new ArrayList<ReplaceableItem>();
+		newContact.add(new ReplaceableItem("Item_01").withAttributes(
+				//add attributes for inputs
+				));
+		
+	}
+
 	private static void searchContacts() {
 		// TODO Auto-generated method stub
 		
