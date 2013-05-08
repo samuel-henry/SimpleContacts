@@ -20,8 +20,14 @@ import com.amazonaws.services.simpledb.model.SelectRequest;
 public class SimpleContacts {
 	private static final String LINE_SEPARATOR = "------------------";
 	private static final String CONTACT_DOMAIN_TITLE = "MySimpleContacts";
+	private static final String FIRST_NAME = "First";
+	private static final String LAST_NAME = "Last";
+	
 	private static Scanner scn = new Scanner(System.in);
 	private static AmazonSimpleDB simpleDBClient;
+	private static String selectedContactId;
+	private static String selectedContactFirst = "";
+	private static String selectedContactLast = "";
 	
 	public static void main(String[] args) {
 		//welcome the user and give them a chance to edit environment variables before continuing
@@ -47,20 +53,6 @@ public class SimpleContacts {
         
         //put data into my domain
         //simpleDBClient.batchPutAttributes(new BatchPutAttributesRequest(CONTACT_DOMAIN_TITLE, createSampleData()));
-		
-        // Select data from a domain
-        String selectExpression = "select * from `" + CONTACT_DOMAIN_TITLE + "`";
-        System.out.println("Selecting: " + selectExpression + "\n");
-        SelectRequest selectRequest = new SelectRequest(selectExpression);
-        for (Item item : simpleDBClient.select(selectRequest).getItems()) {
-            System.out.println("  Item");
-            System.out.println("    Name: " + item.getName());
-            for (Attribute attribute : item.getAttributes()) {
-                System.out.println("      Attribute");
-                System.out.println("        Name:  " + attribute.getName());
-                System.out.println("        Value: " + attribute.getValue());
-            }
-        }
         
 		//formatting
 		System.out.println(LINE_SEPARATOR);
@@ -175,25 +167,69 @@ public class SimpleContacts {
 	}
 
 	private static void listContacts() {
-		GetAttributesResult myContacts = simpleDBClient.getAttributes(new GetAttributesRequest().withDomainName(CONTACT_DOMAIN_TITLE));
-		for (Attribute anAttribute : myContacts.getAttributes()) {
-			System.out.print("Name: " + anAttribute.getName());
-			System.out.println("Value: " + anAttribute.getValue());
-		}
+        // Select all contacts
+        String selectExpression = "select * from `" + CONTACT_DOMAIN_TITLE + "`";
+        String first = "",
+        		last = "";
+        
+        System.out.println("All contacts: \n");
+        SelectRequest selectRequest = new SelectRequest(selectExpression);
+        for (Item item : simpleDBClient.select(selectRequest).getItems()) {
+            System.out.println("Contact ID: " + item.getName());
+            for (Attribute attribute : item.getAttributes()) {
+            	if (attribute.getName().equals(FIRST_NAME)) {
+            		first = attribute.getValue();
+            	} else if (attribute.getName().equals(LAST_NAME)) {
+            		last = attribute.getValue();
+            	}
+            	
+            	
+            }
+            // print the contact's name
+        	System.out.println("Name: " + first + " " + last);
+        	
+        	// reset first and last
+        	first = "";
+        	last = "";
+        	
+        	// print a line break
+            System.out.println();
+        }
 	}
 	
 	private static void selectContact() {
-		// TODO Auto-generated method stub
+		System.out.println("Please enter the Contact ID of the contact you would like to select:");
+		selectedContactId = scn.nextLine();
 		
 	}
 	
 	private static void retrieveContactDetails() {
-		// TODO Auto-generated method stub
+		// check that a contact has been selected
+		if (selectedContactId == null) {
+			System.out.println("Please select a contact first using option 2");
+			return;
+		}
 		
+		// build query
+        String selectExpression = "select * from `" + CONTACT_DOMAIN_TITLE + "` where itemName() = '" + selectedContactId + "'";
+        
+        // execute query
+        SelectRequest selectRequest = new SelectRequest(selectExpression);
+        for (Item item : simpleDBClient.select(selectRequest).getItems()) {
+            System.out.println("Contact ID: " + item.getName());
+            for (Attribute attribute : item.getAttributes()) {
+            	System.out.println(attribute.getName() + ": " + attribute.getValue());
+            }
+            System.out.println();
+        }
 	}
 	
 	private static void editContactDetails() {
-		// TODO Auto-generated method stub
+		// check that a contact has been selected
+		if (selectedContactId == null) {
+			System.out.println("Please select a contact first using option 2");
+			return;
+		}
 		
 	}
 	
