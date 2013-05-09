@@ -133,6 +133,7 @@ public class SimpleContacts {
 			choice = Integer.parseInt(userInput);
 		} catch (NumberFormatException ex) {
 			System.out.println(userInput + " is not a valid option. Please enter one of the numbers given");
+			return;
 		}
 		
 		//handle the user's choice
@@ -257,31 +258,39 @@ public class SimpleContacts {
 			System.out.println("Please select a contact first using option 2");
 			return;
 		}
-		
+
+		System.out.println("\nEdit/Delete contact information for contact " + selectedContactId + ":\n");
+
 		//collection of all possible attributes. used to let user add values for keys that this contact does not have
 		List<String> unusedAttributes = new ArrayList<String>(Arrays.asList(FIRST_KEY, LAST_KEY, PHONE_KEY, 
 				EMAIL_KEY, STREET_KEY, CITY_KEY, STATE_KEY, ZIP_KEY, TAG_KEY, BIRTHDAY_KEY));
 		
+		//collections of attributes to update/delete
 		Collection<ReplaceableAttribute> updateAttributes = new ArrayList<ReplaceableAttribute>();
 		Collection<Attribute> deleteAttributes = new ArrayList<Attribute>();
 		
-		System.out.println("\nEdit/Delete contact information for contact " + selectedContactId + ":\n");
-
 		// build query
         String selectExpression = "select * from `" + CONTACT_DOMAIN_TITLE + "` where itemName() = '" + selectedContactId + "'";
         
+        //initialize modification option to an invalid option
         int modifyOption = -1;
+        
+        //initialize the new value for an attribute
         String newValue = "";
         
-        // execute query
-        SelectRequest selectRequest = new SelectRequest(selectExpression);
-        
+        //let user review/edit existing attributes
         System.out.println("Step 1: Review/Edit/Delete existing attributes\n");
-        for (Item item : simpleDBClient.select(selectRequest).getItems()) {
+        for (Item item : simpleDBClient.select(new SelectRequest(selectExpression)).getItems()) {
             for (Attribute attribute : item.getAttributes()) {
+            	//remove this attribute name from the list of unused attributes
             	unusedAttributes.remove(attribute.getName());
+            	
+            	//prompt user for a modification option (repeat if the user enters an invalid option)
             	while (modifyOption == -1) {
+            		//show the attribute
 	            	System.out.println(attribute.getName() + ": " + attribute.getValue());
+	            	
+	            	//prompt the user for a modification option
 	            	System.out.println("Enter 0 to skip, 1 to edit, or 2 to delete this attribute");
 	            	
 	            	try {
@@ -300,18 +309,23 @@ public class SimpleContacts {
         			//modify this attribute
         			System.out.println("Please enter a new value for this attribute:");
         			
-        			if (attribute.getName().equals(TAG_KEY)) {
+        			//provide instructions for keys requiring special formatting
+        			if (attribute.getName().equals(TAG_KEY)) { 
         				System.out.println("List Tags surrounded by [ ], eg, [cool][smart][awesome]");
         			} else if (attribute.getName().equals(BIRTHDAY_KEY)) {
         				System.out.println("Birthday must be in YYYY-MM-DD format");
         			}
+        			
+        			//get the new value
         			newValue = scn.nextLine();
         			
-        			//add the new value
-        			updateAttributes.add(new ReplaceableAttribute(attribute.getName(), newValue, true));
         			
-        			//delete the old value
+        			//add the old attribute to attributes needing deletion
         			deleteAttributes.add(attribute);
+        			
+        			//add the new value to attributes to update
+        			updateAttributes.add(new ReplaceableAttribute(attribute.getName(), newValue, true));
+
         			break;
         		case 2:
         			//delete this attribute
@@ -332,7 +346,6 @@ public class SimpleContacts {
         }
         
         System.out.println("Step 2: Input values for unused attributes (or skip optional attributes)\n");
-        
         for (String attributeName : unusedAttributes) {
         	System.out.println("Press enter to skip or input a value for " + attributeName);
         	newValue = scn.nextLine();
@@ -341,10 +354,12 @@ public class SimpleContacts {
         	if (newValue.length() > 0) {
         		updateAttributes.add(new ReplaceableAttribute(attributeName, newValue, true));
         	} else if (attributeName.equals(FIRST_KEY)) {
+        		//ensure that a first name exists
         		while (newValue.length() == 0) {
         			System.out.println("First name is required. Please enter a value for first name:");
         			newValue = scn.nextLine();
         		}
+ 
         		//add the new first name value
     			updateAttributes.add(new ReplaceableAttribute(FIRST_KEY, newValue, true));
         	} else {
@@ -352,7 +367,7 @@ public class SimpleContacts {
         	}
         }
 		
-        //perform updates
+        //perform necessary updates
         if (deleteAttributes.size() > 0 || updateAttributes.size() > 0) {
 	        try {
 	        	System.out.println("Performing updates. Please wait...");
@@ -361,6 +376,8 @@ public class SimpleContacts {
 	    		
 	    		//add attributes
 	    		if (updateAttributes.size() > 0) simpleDBClient.putAttributes(new PutAttributesRequest().withDomainName(CONTACT_DOMAIN_TITLE).withItemName(selectedContactId).withAttributes(updateAttributes));
+	    		
+	    		//succesfully applied updates
 	    		System.out.println("Success.");
 	        } catch (Exception ex) {
 	        	System.out.println("There was a problem performing updates. Please review this contact's details and try again.");
@@ -405,6 +422,7 @@ public class SimpleContacts {
 			//reset variable
 			phoneNumber = "";
 			
+			//prompt user to input a phone number/label
 			System.out.print("Enter");
 			if (phoneRecords.size() == 0) {
 				System.out.print(" a ");
@@ -414,8 +432,10 @@ public class SimpleContacts {
 			System.out.println("phone number for this contact with a label (eg. 773-202-5862, Work)");
 			System.out.println("(phone numbers are optional - just press enter to skip):");
 			
+			//get the input
 			phoneNumber = scn.nextLine();
 			
+			//add this phone record to our list if one was entered
 			if (phoneNumber.length() > 0) phoneRecords.add(phoneNumber);
 			
 		} while (phoneNumber.length() > 0);
@@ -425,6 +445,7 @@ public class SimpleContacts {
 			//reset variables
 			emailAddress = "";
 			
+			//prompt the user to input an email address
 			System.out.print("Enter");
 			if (emailRecords.size() == 0) {
 				System.out.print(" an ");
@@ -433,8 +454,11 @@ public class SimpleContacts {
 			}
 			System.out.println("email address for this contact with a label (eg. samuelh@henrycorp.com, Work)");
 			System.out.println("(email addresses are optional - just press enter to skip):");
+			
+			//get the input
 			emailAddress = scn.nextLine();
 			
+			//add this email address to our list if one was entered
 			if (emailAddress.length() > 0) emailRecords.add(emailAddress);
 			
 		} while (emailAddress.length() > 0);
@@ -490,22 +514,27 @@ public class SimpleContacts {
 			List<String> emailRecords, String streetAddress, String city,
 			String state, String zip, String tags, String birthday) {
 		
+		//make sure a first name was entered
 		if (first.length() == 0) {
 			System.out.println("There was a problem creating this contact. First name is required. Please try again.");
 			return false;
 		}
 		
+		//list of attributes to create with
 		Collection<ReplaceableAttribute> attributes = new ArrayList<ReplaceableAttribute>();
 		
 		//add first name attribute
 		attributes.add(new ReplaceableAttribute(FIRST_KEY, first, true));
 		
+		//add last name attribute if one was entered
 		if (last.length() > 0)  attributes.add(new ReplaceableAttribute(LAST_KEY, last, true)) ;
 		
+		//add phone number attributes if entered
 		for (String phoneRecord : phoneRecords) {
 			attributes.add(new ReplaceableAttribute(PHONE_KEY, phoneRecord, true));
 		}
 		
+		//add email address attributes if entered
 		for (String emailRecord : emailRecords) {
 			attributes.add(new ReplaceableAttribute(EMAIL_KEY, emailRecord, true));
 		}
@@ -529,12 +558,12 @@ public class SimpleContacts {
 		if (birthday.length() > 0) attributes.add(new ReplaceableAttribute(BIRTHDAY_KEY, birthday, true));
 		
 		try {
+			//create the contact with a random id and the input attributes
 			simpleDBClient.putAttributes(new PutAttributesRequest().withItemName(String.valueOf(random.nextInt(10000))).withAttributes(attributes).withDomainName(CONTACT_DOMAIN_TITLE));
 			System.out.println("Successfully created new contact: " + first + " " + last);
 			return true;
 		} catch (Exception ex) {
 			System.out.println("There was a problem adding your contact to SimpleDB, please try again.");
-			System.out.println(ex.getMessage());
 			return false;
 		}
 
@@ -544,15 +573,7 @@ public class SimpleContacts {
 	* Let the user search for a contact
 	*********************************************************************/
 	private static void searchContacts() {
-		/*
-		First name starts with <characters>
-		Last name starts with <characters>
-		State = <two-character state code>
-		zip = <five-digit zip code>
-		tag = <a specific value> or <all of a set of delimited values - e.g., friend|co-worker finds everyone who is both a friend and a coworker>
-		birthday before or after a specific date, or between two dates.
-		These are separate searches. You do not need to combine them (e.g., friends in IL)
-		*/
+		//prompt the user for a search option
 		System.out.println("Enter the number of a search to run");
 		System.out.println("1 - First name starts with");
 		System.out.println("2 - Last name starts with");
@@ -619,7 +640,10 @@ public class SimpleContacts {
 			String userInputBeginWhereClause = " Tag like '%[";
 			String userInputEndWhereClause = "]%'";
 			boolean multipleTagInputFlag = false;
+			
+			//let the user input an arbitrary number of tags
 			do {
+				//prompt the user for a tag
 				if (aTag.length() == 0) {
 					System.out.print("Please enter a tag:");
 				} else {
@@ -627,13 +651,17 @@ public class SimpleContacts {
 					multipleTagInputFlag = true;
 				}
 				
+				//get the input
 				aTag = scn.nextLine();
 				
+				//if a tag was entered, update the query string
 				if (aTag.length() > 0) {
+					//include an "and" if multiple tags have been entered
 					if (multipleTagInputFlag) {
 						userInputWhereClause = userInputWhereClause + " and ";
 					}
-				
+					
+					//append the input tag to the query
 					userInputWhereClause = userInputWhereClause + userInputBeginWhereClause + aTag + userInputEndWhereClause;
 				}
 				
@@ -664,8 +692,10 @@ public class SimpleContacts {
 			return;
 		} 
 		
+		//execute the query
 		List<Item> matchingContacts = simpleDBClient.select(new SelectRequest(baseSelectExpression + userInputWhereClause)).getItems();
 		
+		//display any matching contacts
 		if (matchingContacts.size() > 0) {
 			System.out.println("\nResults:\n");
 			displayContacts(matchingContacts);
