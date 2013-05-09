@@ -18,12 +18,14 @@ All values, except first name, are optional
 Tags and labels can be created as needed per contact. 
 
 The user should be able to enter search criteria as described below, and receive a list of all contacts matching the criteria
- - First name starts with <characters>
- - Last name starts with <characters>
- - State = <two-character state code>
- - zip = <five-digit zip code>
- - tag = <a specific value> or <all of a set of delimited values - e.g., friend|co-worker finds everyone who is both a friend and a coworker>
-birthday before or after a specific date, or between two dates.
+ - First name starts with characters
+ - Last name starts with characters
+ - State = two-character state code
+ - zip = five-digit zip code
+ - tag = a specific value or all of a set of delimited values - e.g., friend|co-worker finds everyone who is both a friend and a coworker
+ - birthday before or after a specific date, or between two dates.
+
+
 These are separate searches. You do not need to combine them (e.g., friends in IL)
 When a record has been changed (and edits are complete), a new HTML document should be generated and stored in S3. 
 The HTML format must be updated to accomodate the additional fields.
