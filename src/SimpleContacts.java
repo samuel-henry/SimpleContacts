@@ -47,7 +47,7 @@ public class SimpleContacts {
 		//welcome the user and give them a chance to edit environment variables before continuing
 		System.out.println("Welcome to the Simple Contact Manager");
 		System.out.println(LINE_SEPARATOR);
-		System.out.println("***Make sure you have edited your environment variables to include your AWS access keys before continuing***");
+		System.out.println("***Make sure you have edited your environment variables to include your AWS IAM access keys before continuing***");
 		System.out.println(LINE_SEPARATOR);
 		System.out.println("Press enter to continue...");
 		
