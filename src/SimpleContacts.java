@@ -791,9 +791,9 @@ public class SimpleContacts {
 			break;
 		case 5:
 			//Has Tag
-			System.out.println("Please enter a Tag (just the name, not the brackets):");
+			System.out.println("Please enter a Tag (just the value, not the brackets):");
 			userInputParameter = scn.nextLine();
-			userInputWhereClause = " Tag like '[" + userInputParameter + "]'";
+			userInputWhereClause = " Tag like '%[" + userInputParameter + "]%'";
 			break;
 		case 6:
 			//Has multiple Tags
@@ -806,7 +806,7 @@ public class SimpleContacts {
 			do {
 				//prompt the user for a tag
 				if (aTag.length() == 0) {
-					System.out.print("Please enter a tag:");
+					System.out.print("Please enter a tag (just the value, not the brackets):");
 				} else {
 					System.out.println("Please enter another tag (or just press enter to finish entering tags):");
 					multipleTagInputFlag = true;
@@ -853,16 +853,21 @@ public class SimpleContacts {
 			return;
 		} 
 		
-		//execute the query
-		List<Item> matchingContacts = simpleDBClient.select(new SelectRequest(baseSelectExpression + userInputWhereClause)).getItems();
-		
-		//display any matching contacts
-		if (matchingContacts.size() > 0) {
-			System.out.println("\nResults:\n");
-			displayContacts(matchingContacts);
-		} else {
-			System.out.println("No contacts matched your search.");
+		try {
+			//execute the query
+			List<Item> matchingContacts = simpleDBClient.select(new SelectRequest(baseSelectExpression + userInputWhereClause)).getItems();
+			//display any matching contacts
+			if (matchingContacts.size() > 0) {
+				System.out.println("\nResults:\n");
+				displayContacts(matchingContacts);
+			} else {
+				System.out.println("No contacts matched your search.");
+			}
+		} catch (Exception ex) {
+			System.out.println(baseSelectExpression);
+			System.out.println(ex.getMessage());
 		}
+
 	}
 }
 
