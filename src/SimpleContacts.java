@@ -258,8 +258,6 @@ public class SimpleContacts {
 			return;
 		}
 		
-		//TODO: let user add more Tags
-		
 		//collection of all possible attributes. used to let user add values for keys that this contact does not have
 		List<String> unusedAttributes = new ArrayList<String>(Arrays.asList(FIRST_KEY, LAST_KEY, PHONE_KEY, 
 				EMAIL_KEY, STREET_KEY, CITY_KEY, STATE_KEY, ZIP_KEY, TAG_KEY, BIRTHDAY_KEY));
@@ -301,6 +299,12 @@ public class SimpleContacts {
         		case 1:
         			//modify this attribute
         			System.out.println("Please enter a new value for this attribute:");
+        			
+        			if (attribute.getName().equals(TAG_KEY)) {
+        				System.out.println("List Tags surrounded by [ ], eg, [cool][smart][awesome]");
+        			} else if (attribute.getName().equals(BIRTHDAY_KEY)) {
+        				System.out.println("Birthday must be in YYYY-MM-DD format");
+        			}
         			newValue = scn.nextLine();
         			
         			//add the new value
@@ -379,15 +383,12 @@ public class SimpleContacts {
 				city = "",
 				state = "",
 				zip = "",
-				tag = "",
+				tags = "",
 				birthday = "";
 		
 		//lists of phone numbers/labels and email addresses/labels
 		List<String> phoneRecords = new ArrayList<String>(),
 			emailRecords = new ArrayList<String>();
-		
-		//list of tags
-		List<String> tags = new ArrayList<String>();
 			
 		//get the contact's first name
 		do {
@@ -456,15 +457,12 @@ public class SimpleContacts {
 		//TODO: validate 5 digits
 		
 		//get contact's birthday
-		System.out.println("Enter the birthday for this contact (optional - just press enter to skip):");
+		System.out.println("Enter the birthday (must be in YYYY-MM-DD format) for this contact (optional - just press enter to skip):");
 		birthday = scn.nextLine();
-		//TODO: separate into month/day/year
+
+		System.out.println("Enter tag(s) for this user separated by [ ], eg, [cool][smart][awesome] (optional - just press enter to skip):");
+		tags = scn.nextLine();
 		
-		do {
-			System.out.println("Enter a tag for this user (optional - just press enter to skip):");
-			tag = scn.nextLine();
-			//TODO: add tags to list and reset variable
-		} while (tag.length() > 0);
 
 		//create the contact's database record
 		if (createContactRecordInSimpleDB(first, last, phoneRecords, emailRecords, streetAddress, city, state, zip, tags, birthday)) {
@@ -479,7 +477,7 @@ public class SimpleContacts {
 	private static void createContactPageInS3(String first, String last,
 			List<String> phoneRecords, List<String> emailRecords,
 			String streetAddress, String city, String state, String zip,
-			List<String> tags, String birthday) {
+			String tags, String birthday) {
 		// TODO Auto-generated method stub
 		
 	}
@@ -490,7 +488,7 @@ public class SimpleContacts {
 	private static boolean createContactRecordInSimpleDB(String first,
 			String last, List<String> phoneRecords,
 			List<String> emailRecords, String streetAddress, String city,
-			String state, String zip, List<String> tags, String birthday) {
+			String state, String zip, String tags, String birthday) {
 		
 		if (first.length() == 0) {
 			System.out.println("There was a problem creating this contact. First name is required. Please try again.");
@@ -525,7 +523,7 @@ public class SimpleContacts {
 		if (state.length() > 0) attributes.add(new ReplaceableAttribute(STATE_KEY, state, true));
 		
 		//add tag attributes that were entered
-		for (String tag : tags) attributes.add(new ReplaceableAttribute(TAG_KEY, tag, true));
+		if (tags.length() > 0) attributes.add(new ReplaceableAttribute(TAG_KEY, tags, true));
 		
 		//add birthday attribute if it was entered
 		if (birthday.length() > 0) attributes.add(new ReplaceableAttribute(BIRTHDAY_KEY, birthday, true));
@@ -564,7 +562,7 @@ public class SimpleContacts {
 		System.out.println("6 - Has multiple Tags");
 		System.out.println("7 - Birthday before");
 		System.out.println("8 - Birthday between");
-		System.out.println("8 - Birthday after");
+		System.out.println("9 - Birthday after");
 		
 		//initialize choice to an invalid option
 		int choice = -1;
@@ -611,26 +609,61 @@ public class SimpleContacts {
 			break;
 		case 5:
 			//Has Tag
-			createNewContact();
+			System.out.println("Please enter a Tag (just the name, not the brackets):");
+			userInputParameter = scn.nextLine();
+			userInputWhereClause = " Tag like '[" + userInputParameter + "]'";
 			break;
 		case 6:
 			//Has multiple Tags
-			searchContacts();
+			String aTag = "";
+			String userInputBeginWhereClause = " Tag like '%[";
+			String userInputEndWhereClause = "]%'";
+			boolean multipleTagInputFlag = false;
+			do {
+				if (aTag.length() == 0) {
+					System.out.print("Please enter a tag:");
+				} else {
+					System.out.println("Please enter another tag (or just press enter to finish entering tags):");
+					multipleTagInputFlag = true;
+				}
+				
+				aTag = scn.nextLine();
+				
+				if (aTag.length() > 0) {
+					if (multipleTagInputFlag) {
+						userInputWhereClause = userInputWhereClause + " and ";
+					}
+				
+					userInputWhereClause = userInputWhereClause + userInputBeginWhereClause + aTag + userInputEndWhereClause;
+				}
+				
+			} while(aTag.length() > 0);
 			break;
 		case 7:
 			//Birthday before
+			System.out.println("Please enter the date (in YYYY-MM-DD format) before which to search");
+			userInputParameter = scn.nextLine();
+			userInputWhereClause = " Birthday < '" + userInputParameter + "'";
 			break;
 		case 8:
 			//Birthday between
+			System.out.println("Please enter the date (in YYYY-MM-DD format) after which to search");
+			String firstDate = scn.nextLine();
+			System.out.println("Please enter the date (in YYYY-MM-DD format) before which to search");
+			String secondDate = scn.nextLine();
+			userInputWhereClause = " Birthday > '" + firstDate + "' and Birthday < '" + secondDate + "'";
 			break;
 		case 9:
 			//Birthday after
+			System.out.println("Please enter the date (in YYYY-MM-DD format) after which to search");
+			userInputParameter = scn.nextLine();
+			userInputWhereClause = " Birthday > '" + userInputParameter + "'";
 			break;
 		default:
 			System.out.println(choice + " is not a valid option. Please enter one of the numbers given");
 			return;
 		} 
-		System.out.println(baseSelectExpression + userInputWhereClause);
+		
 		List<Item> matchingContacts = simpleDBClient.select(new SelectRequest(baseSelectExpression + userInputWhereClause)).getItems();
 		
 		if (matchingContacts.size() > 0) {
