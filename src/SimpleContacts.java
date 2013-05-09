@@ -1,3 +1,5 @@
+import java.io.File;
+import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -6,7 +8,8 @@ import java.util.Random;
 import java.util.Scanner;
 
 import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
+import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.simpledb.AmazonSimpleDB;
 import com.amazonaws.services.simpledb.AmazonSimpleDBClient;
 import com.amazonaws.services.simpledb.model.Attribute;
@@ -21,6 +24,8 @@ import com.amazonaws.services.simpledb.model.SelectRequest;
 
 public class SimpleContacts {
 	private static final String LINE_SEPARATOR = "------------------";
+	
+	//SimpleDB keys
 	private static final String CONTACT_DOMAIN_TITLE = "MySimpleContacts";
 	private static final String FIRST_KEY = "First";
 	private static final String LAST_KEY = "Last";
@@ -71,7 +76,6 @@ public class SimpleContacts {
 			//call the operation corresponding to the user's choice
 			handleUserChoice(scn.nextLine());
 		}
-
 	}
 	
 	/********************************************************************
@@ -83,8 +87,7 @@ public class SimpleContacts {
 		
 		try {
 			//get credentials from environment variables
-			//myCredentials = new EnvironmentVariableCredentialsProvider().getCredentials();
-			myCredentials = new BasicAWSCredentials("", "");
+			myCredentials = new EnvironmentVariableCredentialsProvider().getCredentials();
 			simpleDBClient = new AmazonSimpleDBClient(myCredentials); 
 		} catch (Exception ex) {
 			System.out.println("There was a problem reading your credentials.");
@@ -170,7 +173,6 @@ public class SimpleContacts {
 		default:
 			System.out.println(choice + " is not a valid option. Please enter one of the numbers given");
 		}
-		
 	}
 
 	/********************************************************************
@@ -223,7 +225,6 @@ public class SimpleContacts {
 	private static void selectContact() {
 		System.out.println("Please enter the Contact ID of the contact you would like to select:");
 		selectedContactId = scn.nextLine();
-		//TODO: verify this is an existing contact
 	}
 	
 	/********************************************************************
@@ -253,6 +254,7 @@ public class SimpleContacts {
 	* Let the user edit a contact's information
 	*********************************************************************/
 	private static void editContactDetails() {
+		
 		// check that a contact has been selected
 		if (selectedContactId == null) {
 			System.out.println("Please select a contact first using option 2");
@@ -288,7 +290,7 @@ public class SimpleContacts {
             	//prompt user for a modification option (repeat if the user enters an invalid option)
             	while (modifyOption == -1) {
             		//show the attribute
-	            	System.out.println(attribute.getName() + ": " + attribute.getValue());
+	            	System.out.println("\n" + attribute.getName() + ": " + attribute.getValue());
 	            	
 	            	//prompt the user for a modification option
 	            	System.out.println("Enter 0 to skip, 1 to edit, or 2 to delete this attribute");
@@ -378,16 +380,18 @@ public class SimpleContacts {
 	    		if (updateAttributes.size() > 0) simpleDBClient.putAttributes(new PutAttributesRequest().withDomainName(CONTACT_DOMAIN_TITLE).withItemName(selectedContactId).withAttributes(updateAttributes));
 	    		
 	    		//succesfully applied updates
-	    		System.out.println("Success.");
+	    		System.out.println("Successfully updated contact in SimpleDB.");
+	    		
+	    		updateContactInS3();
+	    		
 	        } catch (Exception ex) {
 	        	System.out.println("There was a problem performing updates. Please review this contact's details and try again.");
 	        }    
         } else {
         	System.out.println("No changes to be made.");
         }
-        
 	}
-	
+
 	/********************************************************************
 	* Create a new contact in SimpleDB/S3
 	*********************************************************************/
@@ -478,7 +482,6 @@ public class SimpleContacts {
 		//get contact's zip code
 		System.out.println("Enter the 5 digit zip code for this contact (optional - just press enter to skip):");
 		zip = scn.nextLine();
-		//TODO: validate 5 digits
 		
 		//get contact's birthday
 		System.out.println("Enter the birthday (must be in YYYY-MM-DD format) for this contact (optional - just press enter to skip):");
@@ -491,21 +494,14 @@ public class SimpleContacts {
 		//create the contact's database record
 		if (createContactRecordInSimpleDB(first, last, phoneRecords, emailRecords, streetAddress, city, state, zip, tags, birthday)) {
 			//create the contact's S3 page if the record was created correctly
-			createContactPageInS3(first, last, phoneRecords, emailRecords, streetAddress, city, state, zip, tags, birthday);
+			try {
+				createContactPageInS3(first, last, phoneRecords, emailRecords, streetAddress, city, state, zip, tags, birthday);
+			} catch (Exception ex) {
+				System.out.println("There was a problem creating the webpage for this contact.");
+			}
 		}
 	}
 	
-	/********************************************************************
-	* Create a contact's page in S3
-	*********************************************************************/
-	private static void createContactPageInS3(String first, String last,
-			List<String> phoneRecords, List<String> emailRecords,
-			String streetAddress, String city, String state, String zip,
-			String tags, String birthday) {
-		// TODO Auto-generated method stub
-		
-	}
-
 	/********************************************************************
 	* Create a contact's SimpleDB record
 	*********************************************************************/
@@ -566,7 +562,173 @@ public class SimpleContacts {
 			System.out.println("There was a problem adding your contact to SimpleDB, please try again.");
 			return false;
 		}
+	}
+	
+	/********************************************************************
+	* Create a contact's page in S3
+	 * @throws Exception 
+	*********************************************************************/
+	private static void createContactPageInS3(String first, String last,
+			List<String> phoneRecords, List<String> emailRecords,
+			String streetAddress, String city, String state, String zip,
+			String tags, String birthday) throws Exception {
+		
+		String htmlTemplateBeginning = "<!DOCTYPE html><html><table>";
+		String htmlTemplateEnding = "</body></html>";
+		String htmlHeaderRow = "<tr>";
+		String htmlDetailRow = "<tr>";
 
+		//build the document
+		//add a table cell for the first name
+		if (first.length() > 0) {
+			htmlHeaderRow = htmlHeaderRow + "<th>" + FIRST_KEY + "</th>";
+			htmlDetailRow = htmlDetailRow + "<td>" + first + "</td>";
+		} else {
+			System.out.println("ERROR: First name is mandatory. Please try again.");
+			return;
+		}
+		
+		//add a table cell for the last name if it was entered
+		if (last.length() > 0) {
+			htmlHeaderRow = htmlHeaderRow + "<th>" + LAST_KEY + "</th>";
+			htmlDetailRow = htmlDetailRow + "<td>" + last + "</td>";
+		}
+		
+		//add a table cell for each phone number that was entered
+		for (String phoneRecord : phoneRecords) {
+			htmlHeaderRow = htmlHeaderRow + "<th>" + PHONE_KEY + "</th>";
+			htmlDetailRow = htmlDetailRow + "<td>" + phoneRecord + "</td>";
+		}
+		
+		//add a table cell for each email address that was entered
+		for (String emailRecord : emailRecords) {
+			htmlHeaderRow = htmlHeaderRow + "<th>" + EMAIL_KEY + "</th>";
+			htmlDetailRow = htmlDetailRow + "<td>" + emailRecord + "</td>";
+		}
+		
+		//add a table cell for the street address if it was entered
+		if (streetAddress.length() > 0) {
+			htmlHeaderRow = htmlHeaderRow + "<th>" + STREET_KEY + "</th>";
+			htmlDetailRow = htmlDetailRow + "<td>" + streetAddress + "</td>";
+		}
+		
+		//add a table cell for the city if it was entered
+		if (city.length() > 0) {
+			htmlHeaderRow = htmlHeaderRow + "<th>" + CITY_KEY + "</th>";
+			htmlDetailRow = htmlDetailRow + "<td>" + city + "</td>";
+		}
+		
+		//add a table cell for the state if it was entered
+		if (state.length() > 0) {
+			htmlHeaderRow = htmlHeaderRow + "<th>" + STATE_KEY + "</th>";
+			htmlDetailRow = htmlDetailRow + "<td>" + state + "</td>";
+		}
+		
+		//add a table cell for the zip if it was entered
+		if (zip.length() > 0) {
+			htmlHeaderRow = htmlHeaderRow + "<th>" + ZIP_KEY + "</th>";
+			htmlDetailRow = htmlDetailRow + "<td>" + zip + "</td>";
+		}
+		
+		//add a table cell for the tags that were entered
+		if (tags.length() > 0) {
+			htmlHeaderRow = htmlHeaderRow + "<th>" + TAG_KEY + "</th>";
+			htmlDetailRow = htmlDetailRow + "<td>" + tags + "</td>";
+		}
+		
+		//add a table cell for the birthday if it was entered
+		if (birthday.length() > 0) {
+			htmlHeaderRow = htmlHeaderRow + "<th>" + BIRTHDAY_KEY + "</th>";
+			htmlDetailRow = htmlDetailRow + "<td>" + birthday + "</td>";
+		}
+		
+		//terminate the rows
+		htmlHeaderRow = htmlHeaderRow + "</tr>";
+		htmlDetailRow = htmlDetailRow + "</tr>";
+		
+		String newDocument = htmlTemplateBeginning + htmlHeaderRow + htmlDetailRow + htmlTemplateEnding;
+		
+		//prompt the user for an S3 bucket to store the webpage
+		boolean bucketNameIsValid = false;
+		String s3bucketName = "";
+		
+		while (!bucketNameIsValid) {
+			System.out.println("Enter the name of an S3 bucket to store this contact's webpage in:");
+			s3bucketName = scn.nextLine();
+			bucketNameIsValid = S3ContactManager.validateBucketName(s3bucketName);
+		}
+
+		//concatenate the file name (append a random number (not same as contact id) in case 
+		//multiple contacts are created with the same first name or contact edited many times) so the S3 object won't be overwritten
+		String fileName = first + last + String.valueOf(random.nextInt(1000)) + ".html";
+		
+		//create the new HTML file
+		File contactDocument = new File (fileName);
+		FileWriter fw;
+		fw = new FileWriter(contactDocument);
+		fw.write(newDocument);
+		fw.close();
+
+		//get the S3 client
+		AmazonS3 s3client = S3ContactManager.getS3Client();
+		
+		//store the HTML file in S3
+		s3client.putObject(s3bucketName, fileName, contactDocument);
+		System.out.println("Succesfully added " + fileName + " to your S3 bucket " + s3bucketName);
+		
+		//delete the local file after storing in S3 so it is not retained
+		contactDocument.delete();
+	}
+	
+	/********************************************************************
+	* Update a contact's web page in S3
+	*********************************************************************/
+	private static void updateContactInS3() {
+		String first = ""; 
+		String last = "";
+		List<String> phoneRecords = new ArrayList<String>(); 
+		List<String> emailRecords = new ArrayList<String>(); 
+		String streetAddress = ""; 
+		String city = ""; 
+		String state = ""; 
+		String zip = "";
+		String tags = ""; 
+		String birthday = "";
+		
+		// check that a contact has been selected
+		if (selectedContactId == null) {
+			System.out.println("Please select a contact first using this option");
+			return;
+		}
+		
+		// build query
+        String selectExpression = "select * from `" + CONTACT_DOMAIN_TITLE + "` where itemName() = '" + selectedContactId + "'";
+        
+        // execute query
+        for (Item item : simpleDBClient.select(new SelectRequest(selectExpression)).getItems()) {
+            //get the updated attributes
+            for (Attribute attribute : item.getAttributes()) {
+            	if (attribute.getName().equals(FIRST_KEY)) first = attribute.getValue();
+            	if (attribute.getName().equals(LAST_KEY)) last = attribute.getValue();
+            	if (attribute.getName().equals(PHONE_KEY)) phoneRecords.add(attribute.getValue());
+            	if (attribute.getName().equals(EMAIL_KEY)) emailRecords.add(attribute.getValue());
+            	if (attribute.getName().equals(STREET_KEY)) streetAddress = attribute.getValue();
+            	if (attribute.getName().equals(CITY_KEY)) city = attribute.getValue();
+            	if (attribute.getName().equals(STATE_KEY)) state = attribute.getValue();
+            	if (attribute.getName().equals(ZIP_KEY)) zip = attribute.getValue();
+            	if (attribute.getName().equals(TAG_KEY)) tags = attribute.getValue();
+            	if (attribute.getName().equals(BIRTHDAY_KEY)) birthday = attribute.getValue();
+            }
+            System.out.println();
+        }
+		
+        //create the web page for this updated contact in S3
+		try {
+			createContactPageInS3(first, last, phoneRecords, emailRecords,
+					streetAddress, city, state, zip, tags, birthday);
+		} catch (Exception e) {
+			System.out.println("There was a problem updating S3");
+		}
 	}
 
 	/********************************************************************
@@ -626,7 +788,6 @@ public class SimpleContacts {
 			System.out.println("Please enter the five digit zip code:");
 			userInputParameter = scn.nextLine();
 			userInputWhereClause = " Zip = '" + userInputParameter + "'";
-			editContactDetails();
 			break;
 		case 5:
 			//Has Tag
