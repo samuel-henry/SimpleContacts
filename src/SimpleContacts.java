@@ -46,7 +46,7 @@ public class SimpleContacts {
 		System.out.println(LINE_SEPARATOR);
 		System.out.println("Press enter to continue...");
 		
-		//wait for enter
+		//wait for enter before proceeding
 		scn.nextLine();
 		
 		//get a SimpleDBClient
@@ -54,11 +54,6 @@ public class SimpleContacts {
 		
 		//ensure that the MySimpleContacts domain exists for this user
 		ensureDomainExists();
-		
-		//print domains
-        for (String domainName : simpleDBClient.listDomains().getDomainNames()) {
-            System.out.println("  " + domainName);
-        }
         
 		//formatting
 		System.out.println(LINE_SEPARATOR);
@@ -113,6 +108,7 @@ public class SimpleContacts {
 		for (String domainName : domains.getDomainNames()) {
 			if (domainName.equals(CONTACT_DOMAIN_TITLE)) {
 				domainExists = true;
+				break;
 			}
 		}
 		
@@ -136,7 +132,7 @@ public class SimpleContacts {
 			//get the user's choice from the console
 			choice = Integer.parseInt(userInput);
 		} catch (NumberFormatException ex) {
-			System.out.println(userInput + " is invalid. Please enter only the number of the option you want");
+			System.out.println(userInput + " is not a valid option. Please enter one of the numbers given");
 		}
 		
 		//handle the user's choice
@@ -182,12 +178,26 @@ public class SimpleContacts {
 	private static void listContacts() {
         // Select all contacts
         String selectExpression = "select * from `" + CONTACT_DOMAIN_TITLE + "`";
+        
+        List<Item> allContacts = simpleDBClient.select(new SelectRequest(selectExpression)).getItems();
+        
+        if (allContacts.size() > 0) {
+        	System.out.println("All contacts:\n");
+        	displayContacts(allContacts);
+        } else {
+        	System.out.println("No contacts have been added yet\n");
+        }
+	}
+	
+
+	/********************************************************************
+	* Print a collection of contacts
+	*********************************************************************/
+	private static void displayContacts(List<Item> contacts) {
         String first = "",
         		last = "";
         
-        System.out.println("All contacts:\n");
-        SelectRequest selectRequest = new SelectRequest(selectExpression);
-        for (Item item : simpleDBClient.select(selectRequest).getItems()) {
+        for (Item item : contacts) {
             System.out.println("Contact ID: " + item.getName());
             for (Attribute attribute : item.getAttributes()) {
             	if (attribute.getName().equals(FIRST_KEY)) {
@@ -203,8 +213,9 @@ public class SimpleContacts {
         	first = "";
         	last = "";
         }
+		
 	}
-	
+
 	/********************************************************************
 	* Let the user select a contact
 	*********************************************************************/
@@ -228,8 +239,7 @@ public class SimpleContacts {
         String selectExpression = "select * from `" + CONTACT_DOMAIN_TITLE + "` where itemName() = '" + selectedContactId + "'";
         
         // execute query
-        SelectRequest selectRequest = new SelectRequest(selectExpression);
-        for (Item item : simpleDBClient.select(selectRequest).getItems()) {
+        for (Item item : simpleDBClient.select(new SelectRequest(selectExpression)).getItems()) {
             System.out.println("Contact ID: " + item.getName());
             for (Attribute attribute : item.getAttributes()) {
             	System.out.println(attribute.getName() + ": " + attribute.getValue());
@@ -536,8 +546,99 @@ public class SimpleContacts {
 	* Let the user search for a contact
 	*********************************************************************/
 	private static void searchContacts() {
-		// TODO Auto-generated method stub
+		/*
+		First name starts with <characters>
+		Last name starts with <characters>
+		State = <two-character state code>
+		zip = <five-digit zip code>
+		tag = <a specific value> or <all of a set of delimited values - e.g., friend|co-worker finds everyone who is both a friend and a coworker>
+		birthday before or after a specific date, or between two dates.
+		These are separate searches. You do not need to combine them (e.g., friends in IL)
+		*/
+		System.out.println("Enter the number of a search to run");
+		System.out.println("1 - First name starts with");
+		System.out.println("2 - Last name starts with");
+		System.out.println("3 - State equals");
+		System.out.println("4 - Zip equals");
+		System.out.println("5 - Has Tag");
+		System.out.println("6 - Has multiple Tags");
+		System.out.println("7 - Birthday before");
+		System.out.println("8 - Birthday between");
+		System.out.println("8 - Birthday after");
 		
+		//initialize choice to an invalid option
+		int choice = -1;
+		
+		//get the user's input choice
+		try {
+			choice = Integer.valueOf(scn.nextLine());
+		} catch (NumberFormatException ex) {
+			System.out.println(choice + " is not a valid option. Please try again and enter one of the numbers given");
+			return;
+		}
+		
+		// build query
+        String baseSelectExpression = "select * from `" + CONTACT_DOMAIN_TITLE + "` where ";
+        String userInputWhereClause = "";
+        String userInputParameter = "";
+        
+		//handle the user's choice
+		switch(choice) {
+		case 1:
+			//search for First name starts with
+			System.out.println("Please enter the character(s) the first name should start with:");
+			userInputParameter = scn.nextLine();
+			userInputWhereClause = " First like '" + userInputParameter + "%'";
+			break;
+		case 2:
+			//search for Last name starts with
+			System.out.println("Please enter the character(s) the last name should start with:");
+			userInputParameter = scn.nextLine();
+			userInputWhereClause = " Last like '" + userInputParameter + "%'";
+			break;
+		case 3:
+			//State equals
+			System.out.println("Please enter the two character state abbreviation (e.g., MD, NY, WA, etc.):");
+			userInputParameter = scn.nextLine();
+			userInputWhereClause = " State = '" + userInputParameter + "'";
+			break;
+		case 4:
+			//Zip equals
+			System.out.println("Please enter the five digit zip code:");
+			userInputParameter = scn.nextLine();
+			userInputWhereClause = " Zip = '" + userInputParameter + "'";
+			editContactDetails();
+			break;
+		case 5:
+			//Has Tag
+			createNewContact();
+			break;
+		case 6:
+			//Has multiple Tags
+			searchContacts();
+			break;
+		case 7:
+			//Birthday before
+			break;
+		case 8:
+			//Birthday between
+			break;
+		case 9:
+			//Birthday after
+			break;
+		default:
+			System.out.println(choice + " is not a valid option. Please enter one of the numbers given");
+			return;
+		} 
+		System.out.println(baseSelectExpression + userInputWhereClause);
+		List<Item> matchingContacts = simpleDBClient.select(new SelectRequest(baseSelectExpression + userInputWhereClause)).getItems();
+		
+		if (matchingContacts.size() > 0) {
+			System.out.println("\nResults:\n");
+			displayContacts(matchingContacts);
+		} else {
+			System.out.println("No contacts matched your search.");
+		}
 	}
 }
 
