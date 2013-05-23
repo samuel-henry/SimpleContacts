@@ -541,9 +541,14 @@ public class SimpleContacts {
 		//create the contact's database record
 		int itemId = createContactRecordInSimpleDB(first, last, phoneRecords, emailRecords, streetAddress, city, state, zip, tags, birthday);
 		if (itemId > -1) {
-			//create the contact's S3 page if the record was created correctly
+			//create the contact's S3 page if the record was created correctly and notify SNS subscribers
 			try {
 				createContactPageInS3(itemId, first, last, phoneRecords, emailRecords, streetAddress, city, state, zip, tags, birthday);
+				
+				//publish SNS message
+				String message = "{  \"updateType\" : \"create\", \"itemId\" : " + "\"" + itemId + "\", \"first\" : " + "\"" + first + "\", \"last\" : \"" + last + "\", \"url\" : \"" + "https://s3.amazonaws.com/" + CONTACT_DOMAIN_TITLE + "/" + first + last + itemId + ".html\"}" ;
+				System.out.println(message);
+				snsClient.publish(new PublishRequest(UPDATE_TOPIC_ARN, message));
 			} catch (Exception ex) {
 				System.out.println("There was a problem creating the webpage for this contact.");
 			}
@@ -713,11 +718,6 @@ public class SimpleContacts {
 		
 		//store HTML file with public accessibility in S3
 		s3client.putObject(new PutObjectRequest(s3bucketName, fileName, contactDocument).withCannedAcl(CannedAccessControlList.PublicRead));
-		
-		//publish SNS message
-		String message = "{  \"updateType\" : \"create\", \"itemId\" : " + "\"" + itemId + "\", \"first\" : " + "\"" + first + "\", \"last\" : \"" + last + "\", \"url\" : \"" + "https://s3.amazonaws.com/" + s3bucketName + "/" + first + last + itemId + ".html\"}" ;
-		System.out.println(message);
-		snsClient.publish(new PublishRequest(UPDATE_TOPIC_ARN, message));
 		
 		System.out.println("Succesfully added " + fileName + " to your S3 bucket " + s3bucketName);
 		
