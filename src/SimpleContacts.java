@@ -8,8 +8,10 @@ import java.util.Random;
 import java.util.Scanner;
 
 import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.simpledb.AmazonSimpleDB;
 import com.amazonaws.services.simpledb.AmazonSimpleDBClient;
 import com.amazonaws.services.simpledb.model.Attribute;
@@ -47,12 +49,6 @@ public class SimpleContacts {
 		//welcome the user and give them a chance to edit environment variables before continuing
 		System.out.println("Welcome to the Simple Contact Manager");
 		System.out.println(LINE_SEPARATOR);
-		System.out.println("***Make sure you have edited your environment variables to include your AWS IAM access keys before continuing***");
-		System.out.println(LINE_SEPARATOR);
-		System.out.println("Press enter to continue...");
-		
-		//wait for enter before proceeding
-		scn.nextLine();
 		
 		//get a SimpleDBClient
 		simpleDBClient = getSimpleDBClient();
@@ -72,6 +68,7 @@ public class SimpleContacts {
 			System.out.println("4 Edit details about selected contact");
 			System.out.println("5 Create new contact");
 			System.out.println("6 Search contacts");
+			//TODO: delete contact
 			
 			//call the operation corresponding to the user's choice
 			handleUserChoice(scn.nextLine());
@@ -86,12 +83,11 @@ public class SimpleContacts {
 		AmazonSimpleDB simpleDBClient = null;
 		
 		try {
-			//get credentials from environment variables
-			myCredentials = new EnvironmentVariableCredentialsProvider().getCredentials();
+			//get credentials from default provider chain 
+			myCredentials = new DefaultAWSCredentialsProviderChain().getCredentials();
 			simpleDBClient = new AmazonSimpleDBClient(myCredentials); 
 		} catch (Exception ex) {
 			System.out.println("There was a problem reading your credentials.");
-			System.out.println("Please make sure you have updated your environment variables with your AWS credentials and restart.");
 			System.exit(0);
 		}
 		
@@ -496,6 +492,7 @@ public class SimpleContacts {
 			//create the contact's S3 page if the record was created correctly
 			try {
 				createContactPageInS3(first, last, phoneRecords, emailRecords, streetAddress, city, state, zip, tags, birthday);
+				//TODO: send CREATE notification
 			} catch (Exception ex) {
 				System.out.println("There was a problem creating the webpage for this contact.");
 			}
@@ -672,8 +669,8 @@ public class SimpleContacts {
 		//get the S3 client
 		AmazonS3 s3client = S3ContactManager.getS3Client();
 		
-		//store the HTML file in S3
-		s3client.putObject(s3bucketName, fileName, contactDocument);
+		//store HTML file with public accessibility in S3
+		s3client.putObject(new PutObjectRequest(s3bucketName, fileName, contactDocument).withCannedAcl(CannedAccessControlList.PublicRead));
 		System.out.println("Succesfully added " + fileName + " to your S3 bucket " + s3bucketName);
 		
 		//delete the local file after storing in S3 so it is not retained
@@ -726,6 +723,7 @@ public class SimpleContacts {
 		try {
 			createContactPageInS3(first, last, phoneRecords, emailRecords,
 					streetAddress, city, state, zip, tags, birthday);
+			//TODO: send UPDATE notification
 		} catch (Exception e) {
 			System.out.println("There was a problem updating S3");
 		}
