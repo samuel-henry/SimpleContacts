@@ -427,7 +427,7 @@ public class SimpleContacts {
 	    		updateContactInS3();
 	    		
 	    		// publish sns notification
-	    		String message = "{  \"updateType\" : \"edit\", \"itemId\" : " + "\"" + selectedContactId + "\", \"first\" : " + "\"" + first + "\", \"last\" : \"" + last + "\", \"url\" : \"" + "https://s3.amazonaws.com/" + CONTACT_DOMAIN_TITLE + "/" + first + last + selectedContactId + ".html\"}" ;
+	    		String message = "{  \"updateType\" : \"edit\", \"itemId\" : " + "\"" + selectedContactId + "\", \"first\" : " + "\"" + first + "\", \"last\" : \"" + last + "\", \"url\" : \"" + "https://s3.amazonaws.com/" + CONTACT_DOMAIN_TITLE + "/" + first + last + selectedContactId + ".html\" }" ;
 	    		System.out.println(message);
 	    		snsClient.publish(new PublishRequest(UPDATE_TOPIC_ARN, message));
 	    		
