@@ -22,6 +22,9 @@ import com.amazonaws.services.simpledb.model.ListDomainsResult;
 import com.amazonaws.services.simpledb.model.PutAttributesRequest;
 import com.amazonaws.services.simpledb.model.ReplaceableAttribute;
 import com.amazonaws.services.simpledb.model.SelectRequest;
+import com.amazonaws.services.sns.AmazonSNS;
+import com.amazonaws.services.sns.AmazonSNSClient;
+import com.amazonaws.services.sns.model.PublishRequest;
 
 
 public class SimpleContacts {
@@ -42,6 +45,7 @@ public class SimpleContacts {
 	
 	private static Scanner scn = new Scanner(System.in);
 	private static AmazonSimpleDB simpleDBClient;
+	private static AmazonSNS snsClient;
 	private static String selectedContactId;
 	private static Random random = new Random();
 	
@@ -52,6 +56,9 @@ public class SimpleContacts {
 		
 		//get a SimpleDBClient
 		simpleDBClient = getSimpleDBClient();
+		
+		//get a Simple Notification Service (SNS) client
+		snsClient = getSNSClient();
 		
 		//ensure that the MySimpleContacts domain exists for this user
 		ensureDomainExists();
@@ -92,6 +99,25 @@ public class SimpleContacts {
 		}
 		
 		return simpleDBClient;
+	}
+	
+	/********************************************************************
+	* Get SNS client using the user's credentials
+	*********************************************************************/
+	private static AmazonSNS getSNSClient() {
+		AWSCredentials myCredentials;
+		AmazonSNS snsClient = null;
+		
+		try {
+			//get credentials from default provider chain
+			myCredentials = new DefaultAWSCredentialsProviderChain().getCredentials();
+			snsClient = new AmazonSNSClient(myCredentials);
+		} catch (Exception ex) {
+			System.out.println("There was a problem reading your credentials.");
+			System.exit(0);
+		}
+		
+		return snsClient;
 	}
 
 	/********************************************************************
@@ -866,6 +892,10 @@ public class SimpleContacts {
 			System.out.println(ex.getMessage());
 		}
 
+	}
+	
+	private static void sendSNSUpdate(String actionType, String first, String last, String url) {
+		//snsClient.publish(new PublishRequest().withMessageStructure(null));
 	}
 }
 

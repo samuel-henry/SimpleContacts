@@ -6,8 +6,7 @@ import java.util.List;
 import java.util.Scanner;
 
 import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
-import com.amazonaws.auth.PropertiesCredentials;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
@@ -87,7 +86,7 @@ public class S3ContactManager {
 		
 		try {
 			//get credentials from environment variables
-			myCredentials = new EnvironmentVariableCredentialsProvider().getCredentials();
+			myCredentials = new DefaultAWSCredentialsProviderChain().getCredentials();
 			s3client = new AmazonS3Client(myCredentials); 
 		} catch (Exception ex) {
 			System.out.println("There was a problem reading your credentials.");
