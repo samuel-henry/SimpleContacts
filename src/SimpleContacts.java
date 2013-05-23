@@ -11,6 +11,7 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.simpledb.AmazonSimpleDB;
 import com.amazonaws.services.simpledb.AmazonSimpleDBClient;
@@ -47,6 +48,7 @@ public class SimpleContacts {
 	private static Scanner scn = new Scanner(System.in);
 	private static AmazonSimpleDB simpleDBClient;
 	private static AmazonSNS snsClient;
+	private static AmazonS3 s3client;
 	private static String selectedContactId;
 	private static Random random = new Random();
 	
@@ -60,6 +62,9 @@ public class SimpleContacts {
 		
 		//get a Simple Notification Service (SNS) client
 		snsClient = getSNSClient();
+		
+		//get an S3 client
+		s3client = S3ContactManager.getS3Client();
 		
 		//ensure that the MySimpleContacts domain exists for this user
 		ensureDomainExists();
@@ -76,7 +81,7 @@ public class SimpleContacts {
 			System.out.println("4 Edit details about selected contact");
 			System.out.println("5 Create new contact");
 			System.out.println("6 Search contacts");
-			//TODO: delete contact
+			System.out.println("7 Delete Contact");
 			
 			//call the operation corresponding to the user's choice
 			handleUserChoice(scn.nextLine());
@@ -193,6 +198,9 @@ public class SimpleContacts {
 			//search contacts
 			searchContacts();
 			break;
+		case 7:
+			//delete selected contact
+			deleteContact();
 		default:
 			System.out.println(choice + " is not a valid option. Please enter one of the numbers given");
 		}
@@ -300,8 +308,10 @@ public class SimpleContacts {
         //initialize modification option to an invalid option
         int modifyOption = -1;
         
-        //initialize the new value for an attribute
-        String newValue = "";
+        //initialize the new value for an attribute and first/last names
+        String newValue = ""
+        		, first = ""
+        		, last = "";
         
         //let user review/edit existing attributes
         System.out.println("Step 1: Review/Edit/Delete existing attributes\n");
@@ -329,6 +339,8 @@ public class SimpleContacts {
         		switch(modifyOption) {
         		case 0:
         			//skip this attribute
+        			if (attribute.getName().equals(FIRST_KEY)) first = attribute.getValue();
+        			if (attribute.getName().equals(LAST_KEY)) last = attribute.getValue();
         			break;
         		case 1:
         			//modify this attribute
@@ -344,6 +356,8 @@ public class SimpleContacts {
         			//get the new value
         			newValue = scn.nextLine();
         			
+        			if (attribute.getName().equals(FIRST_KEY)) first = newValue;
+        			if (attribute.getName().equals(LAST_KEY)) last = newValue;
         			
         			//add the old attribute to attributes needing deletion
         			deleteAttributes.add(attribute);
@@ -386,7 +400,10 @@ public class SimpleContacts {
         		}
  
         		//add the new first name value
+        		first = newValue;
     			updateAttributes.add(new ReplaceableAttribute(FIRST_KEY, newValue, true));
+        	} else if (attributeName.equals(LAST_KEY)) {
+        		last = " ";
         	} else {
         		//optional attribute, just skip it
         	}
@@ -405,7 +422,13 @@ public class SimpleContacts {
 	    		//succesfully applied updates
 	    		System.out.println("Successfully updated contact in SimpleDB.");
 	    		
+	    		//update the contact's s3 object
 	    		updateContactInS3();
+	    		
+	    		// publish sns notification
+	    		String message = "{  \"updateType\" : \"edit\", \"itemId\" : " + "\"" + selectedContactId + "\", \"first\" : " + "\"" + first + "\", \"last\" : \"" + last + "\", \"url\" : \"" + "https://s3.amazonaws.com/" + CONTACT_DOMAIN_TITLE + "/" + first + last + selectedContactId + ".html\"}" ;
+	    		System.out.println(message);
+	    		snsClient.publish(new PublishRequest(UPDATE_TOPIC_ARN, message));
 	    		
 	        } catch (Exception ex) {
 	        	System.out.println("There was a problem performing updates. Please review this contact's details and try again.");
@@ -520,7 +543,6 @@ public class SimpleContacts {
 			//create the contact's S3 page if the record was created correctly
 			try {
 				createContactPageInS3(itemId, first, last, phoneRecords, emailRecords, streetAddress, city, state, zip, tags, birthday);
-				//TODO: send CREATE notification
 			} catch (Exception ex) {
 				System.out.println("There was a problem creating the webpage for this contact.");
 			}
@@ -600,7 +622,7 @@ public class SimpleContacts {
 			String streetAddress, String city, String state, String zip,
 			String tags, String birthday) throws Exception {
 		
-		String htmlTemplateBeginning = "<!DOCTYPE html><html><table>";
+		String htmlTemplateBeginning = "<!DOCTYPE html><html><body><table>";
 		String htmlTemplateEnding = "</body></html>";
 		String htmlHeaderRow = "<tr>";
 		String htmlDetailRow = "<tr>";
@@ -687,15 +709,12 @@ public class SimpleContacts {
 		fw = new FileWriter(contactDocument);
 		fw.write(newDocument);
 		fw.close();
-
-		//get the S3 client
-		AmazonS3 s3client = S3ContactManager.getS3Client();
 		
 		//store HTML file with public accessibility in S3
 		s3client.putObject(new PutObjectRequest(s3bucketName, fileName, contactDocument).withCannedAcl(CannedAccessControlList.PublicRead));
 		
-		//TODO: send UPDATE notification
-		String message = "{ \"itemId\" : " + "\"" + itemId + "\", \"first\" : " + "\"" + first + "\", \"last\" : \"" + last + "\", \"url\" : \"" + "https://s3.amazonaws.com/" + s3bucketName + "/" + first + last + itemId + ".html\"}" ;
+		//publish SNS message
+		String message = "{  \"updateType\" : \"create\", \"itemId\" : " + "\"" + itemId + "\", \"first\" : " + "\"" + first + "\", \"last\" : \"" + last + "\", \"url\" : \"" + "https://s3.amazonaws.com/" + s3bucketName + "/" + first + last + itemId + ".html\"}" ;
 		System.out.println(message);
 		snsClient.publish(new PublishRequest(UPDATE_TOPIC_ARN, message));
 		
@@ -895,6 +914,38 @@ public class SimpleContacts {
 			System.out.println(ex.getMessage());
 		}
 
+	}
+	
+	private static void deleteContact() {
+		// check that a contact has been selected
+		if (selectedContactId == null) {
+			System.out.println("Please select a contact first using option 2");
+			return;
+		}
+		
+		// delete from simpledb
+		simpleDBClient.deleteAttributes(new DeleteAttributesRequest().withDomainName(CONTACT_DOMAIN_TITLE).withItemName(selectedContactId));
+		
+		// delete from s3
+        String selectExpression = "select * from `" + CONTACT_DOMAIN_TITLE + "` where itemName() = '" + selectedContactId + "'";
+        String first = "", 
+        		last = "";
+        
+        for (Item item : simpleDBClient.select(new SelectRequest(selectExpression)).getItems()) {
+            for (Attribute attribute : item.getAttributes()) {
+            	if (attribute.getName().equals(FIRST_KEY)) {
+            		first = attribute.getValue();
+            	} else if (attribute.getName().equals(LAST_KEY)) {
+            		last = attribute.getValue();
+            	}
+            }
+        }
+		s3client.deleteObject(new DeleteObjectRequest(CONTACT_DOMAIN_TITLE, first + last + selectedContactId + ".html"));
+		
+		// publish sns notification
+		String message = "{ \"updateType\" : \"delete\", \"itemId\" : " + "\"" + selectedContactId + "}";
+		System.out.println(message);
+		snsClient.publish(new PublishRequest(UPDATE_TOPIC_ARN, message));
 	}
 	
 	private static void sendSNSUpdate(String actionType, String first, String last, String url) {
