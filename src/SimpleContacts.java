@@ -201,6 +201,7 @@ public class SimpleContacts {
 		case 7:
 			//delete selected contact
 			deleteContact();
+			break;
 		default:
 			System.out.println(choice + " is not a valid option. Please enter one of the numbers given");
 		}
@@ -943,7 +944,7 @@ public class SimpleContacts {
 		s3client.deleteObject(new DeleteObjectRequest(CONTACT_DOMAIN_TITLE, first + last + selectedContactId + ".html"));
 		
 		// publish sns notification
-		String message = "{ \"updateType\" : \"delete\", \"itemId\" : " + "\"" + selectedContactId + "}";
+		String message = "{ \"updateType\" : \"delete\", \"itemId\" : " + "\"" + selectedContactId + "\" }";
 		System.out.println(message);
 		snsClient.publish(new PublishRequest(UPDATE_TOPIC_ARN, message));
 	}
