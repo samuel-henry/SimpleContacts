@@ -24,14 +24,13 @@ import com.amazonaws.services.simpledb.model.ReplaceableAttribute;
 import com.amazonaws.services.simpledb.model.SelectRequest;
 import com.amazonaws.services.sns.AmazonSNS;
 import com.amazonaws.services.sns.AmazonSNSClient;
-import com.amazonaws.services.sns.model.PublishRequest;
 
 
 public class SimpleContacts {
 	private static final String LINE_SEPARATOR = "------------------";
 	
 	//SimpleDB keys
-	private static final String CONTACT_DOMAIN_TITLE = "MySimpleContacts";
+	private static final String CONTACT_DOMAIN_TITLE = "cspp51083.samuelh.simplecontacts";
 	private static final String FIRST_KEY = "First";
 	private static final String LAST_KEY = "Last";
 	private static final String PHONE_KEY = "Phone";
@@ -514,10 +513,11 @@ public class SimpleContacts {
 		
 
 		//create the contact's database record
-		if (createContactRecordInSimpleDB(first, last, phoneRecords, emailRecords, streetAddress, city, state, zip, tags, birthday)) {
+		int itemId = createContactRecordInSimpleDB(first, last, phoneRecords, emailRecords, streetAddress, city, state, zip, tags, birthday);
+		if (itemId > -1) {
 			//create the contact's S3 page if the record was created correctly
 			try {
-				createContactPageInS3(first, last, phoneRecords, emailRecords, streetAddress, city, state, zip, tags, birthday);
+				createContactPageInS3(itemId, first, last, phoneRecords, emailRecords, streetAddress, city, state, zip, tags, birthday);
 				//TODO: send CREATE notification
 			} catch (Exception ex) {
 				System.out.println("There was a problem creating the webpage for this contact.");
@@ -528,7 +528,7 @@ public class SimpleContacts {
 	/********************************************************************
 	* Create a contact's SimpleDB record
 	*********************************************************************/
-	private static boolean createContactRecordInSimpleDB(String first,
+	private static int createContactRecordInSimpleDB(String first,
 			String last, List<String> phoneRecords,
 			List<String> emailRecords, String streetAddress, String city,
 			String state, String zip, String tags, String birthday) {
@@ -536,7 +536,7 @@ public class SimpleContacts {
 		//make sure a first name was entered
 		if (first.length() == 0) {
 			System.out.println("There was a problem creating this contact. First name is required. Please try again.");
-			return false;
+			return -1;
 		}
 		
 		//list of attributes to create with
@@ -578,20 +578,22 @@ public class SimpleContacts {
 		
 		try {
 			//create the contact with a random id and the input attributes
-			simpleDBClient.putAttributes(new PutAttributesRequest().withItemName(String.valueOf(random.nextInt(10000))).withAttributes(attributes).withDomainName(CONTACT_DOMAIN_TITLE));
+			int itemId = random.nextInt(10000);
+			simpleDBClient.putAttributes(new PutAttributesRequest().withItemName(String.valueOf(itemId)).withAttributes(attributes).withDomainName(CONTACT_DOMAIN_TITLE));
 			System.out.println("Successfully created new contact: " + first + " " + last);
-			return true;
+			return itemId;
 		} catch (Exception ex) {
 			System.out.println("There was a problem adding your contact to SimpleDB, please try again.");
-			return false;
 		}
+		
+		return -1;
 	}
 	
 	/********************************************************************
 	* Create a contact's page in S3
 	 * @throws Exception 
 	*********************************************************************/
-	private static void createContactPageInS3(String first, String last,
+	private static void createContactPageInS3(int itemId, String first, String last,
 			List<String> phoneRecords, List<String> emailRecords,
 			String streetAddress, String city, String state, String zip,
 			String tags, String birthday) throws Exception {
@@ -673,17 +675,11 @@ public class SimpleContacts {
 		
 		//prompt the user for an S3 bucket to store the webpage
 		boolean bucketNameIsValid = false;
-		String s3bucketName = "";
-		
-		while (!bucketNameIsValid) {
-			System.out.println("Enter the name of an S3 bucket to store this contact's webpage in:");
-			s3bucketName = scn.nextLine();
-			bucketNameIsValid = S3ContactManager.validateBucketName(s3bucketName);
-		}
+		String s3bucketName = "cspp51083.samuelh.simplecontacts";
 
 		//concatenate the file name (append a random number (not same as contact id) in case 
 		//multiple contacts are created with the same first name or contact edited many times) so the S3 object won't be overwritten
-		String fileName = first + last + String.valueOf(random.nextInt(1000)) + ".html";
+		String fileName = first + last + String.valueOf(itemId) + ".html";
 		
 		//create the new HTML file
 		File contactDocument = new File (fileName);
@@ -701,6 +697,8 @@ public class SimpleContacts {
 		
 		//delete the local file after storing in S3 so it is not retained
 		contactDocument.delete();
+		
+		//TODO: notify w/item id/url
 	}
 	
 	/********************************************************************
@@ -747,7 +745,7 @@ public class SimpleContacts {
 		
         //create the web page for this updated contact in S3
 		try {
-			createContactPageInS3(first, last, phoneRecords, emailRecords,
+			createContactPageInS3(Integer.valueOf(selectedContactId), first, last, phoneRecords, emailRecords,
 					streetAddress, city, state, zip, tags, birthday);
 			//TODO: send UPDATE notification
 		} catch (Exception e) {
