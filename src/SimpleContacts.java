@@ -24,6 +24,7 @@ import com.amazonaws.services.simpledb.model.ReplaceableAttribute;
 import com.amazonaws.services.simpledb.model.SelectRequest;
 import com.amazonaws.services.sns.AmazonSNS;
 import com.amazonaws.services.sns.AmazonSNSClient;
+import com.amazonaws.services.sns.model.PublishRequest;
 
 
 public class SimpleContacts {
@@ -41,6 +42,7 @@ public class SimpleContacts {
 	private static final String ZIP_KEY = "Zip";
 	private static final String TAG_KEY = "Tag";
 	private static final String BIRTHDAY_KEY = "Birthday";
+	private static final String UPDATE_TOPIC_ARN = "arn:aws:sns:us-east-1:875425895862:51083-updated";
 	
 	private static Scanner scn = new Scanner(System.in);
 	private static AmazonSimpleDB simpleDBClient;
@@ -673,8 +675,6 @@ public class SimpleContacts {
 		
 		String newDocument = htmlTemplateBeginning + htmlHeaderRow + htmlDetailRow + htmlTemplateEnding;
 		
-		//prompt the user for an S3 bucket to store the webpage
-		boolean bucketNameIsValid = false;
 		String s3bucketName = "cspp51083.samuelh.simplecontacts";
 
 		//concatenate the file name (append a random number (not same as contact id) in case 
@@ -693,12 +693,16 @@ public class SimpleContacts {
 		
 		//store HTML file with public accessibility in S3
 		s3client.putObject(new PutObjectRequest(s3bucketName, fileName, contactDocument).withCannedAcl(CannedAccessControlList.PublicRead));
+		
+		//TODO: send UPDATE notification
+		String message = "{ \"itemId\" : " + "\"" + itemId + "\", \"first\" : " + "\"" + first + "\", \"last\" : \"" + last + "\", \"url\" : \"" + "https://s3.amazonaws.com/" + s3bucketName + "/" + first + last + itemId + ".html\"}" ;
+		System.out.println(message);
+		snsClient.publish(new PublishRequest(UPDATE_TOPIC_ARN, message));
+		
 		System.out.println("Succesfully added " + fileName + " to your S3 bucket " + s3bucketName);
 		
 		//delete the local file after storing in S3 so it is not retained
 		contactDocument.delete();
-		
-		//TODO: notify w/item id/url
 	}
 	
 	/********************************************************************
@@ -745,11 +749,12 @@ public class SimpleContacts {
 		
         //create the web page for this updated contact in S3
 		try {
-			createContactPageInS3(Integer.valueOf(selectedContactId), first, last, phoneRecords, emailRecords,
+			int itemId = Integer.valueOf(selectedContactId);
+			createContactPageInS3(itemId, first, last, phoneRecords, emailRecords,
 					streetAddress, city, state, zip, tags, birthday);
-			//TODO: send UPDATE notification
 		} catch (Exception e) {
 			System.out.println("There was a problem updating S3");
+			System.out.println(e.getMessage());
 		}
 	}
 
