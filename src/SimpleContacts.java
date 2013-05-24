@@ -428,7 +428,7 @@ public class SimpleContacts {
 	    		
 	    		// publish sns notification
 	    		String message = "{  \"updateType\" : \"edit\", \"itemName\" : " + "\"" + selectedContactId + "\", \"first\" : " + "\"" + first + "\", \"last\" : \"" + last + "\", \"url\" : \"" + "https://s3.amazonaws.com/" + CONTACT_DOMAIN_TITLE + "/" + first + last + selectedContactId + ".html\" }" ;
-	    		System.out.println(message);
+	    		
 	    		snsClient.publish(new PublishRequest(UPDATE_TOPIC_ARN, message));
 	    		
 	        } catch (Exception ex) {
@@ -547,10 +547,11 @@ public class SimpleContacts {
 				
 				//publish SNS message
 				String message = "{  \"updateType\" : \"create\", \"itemName\" : " + "\"" + itemId + "\", \"first\" : " + "\"" + first + "\", \"last\" : \"" + last + "\", \"url\" : \"" + "https://s3.amazonaws.com/" + CONTACT_DOMAIN_TITLE + "/" + first + last + itemId + ".html\"}" ;
-				System.out.println(message);
+				
 				snsClient.publish(new PublishRequest(UPDATE_TOPIC_ARN, message));
 			} catch (Exception ex) {
 				System.out.println("There was a problem creating the webpage for this contact.");
+				System.out.println(ex.getMessage());
 			}
 		}
 	}
@@ -944,7 +945,7 @@ public class SimpleContacts {
 		
 		// publish sns notification
 		String message = "{ \"updateType\" : \"delete\", \"itemName\" : " + "\"" + selectedContactId + "\" }";
-		System.out.println(message);
+		
 		snsClient.publish(new PublishRequest(UPDATE_TOPIC_ARN, message));
 	}
 	
