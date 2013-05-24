@@ -393,7 +393,7 @@ public class SimpleContacts {
         	//add the new attribute if one was entered
         	if (newValue.length() > 0) {
         		updateAttributes.add(new ReplaceableAttribute(attributeName, newValue, true));
-        	} else if (attributeName.equals(FIRST_KEY)) {
+        	} else if (attributeName.equals(FIRST_KEY) && first != "") {
         		//ensure that a first name exists
         		while (newValue.length() == 0) {
         			System.out.println("First name is required. Please enter a value for first name:");
