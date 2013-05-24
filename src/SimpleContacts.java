@@ -639,7 +639,6 @@ public class SimpleContacts {
 			htmlHeaderRow = htmlHeaderRow + "<th>" + FIRST_KEY + "</th>";
 			htmlDetailRow = htmlDetailRow + "<td>" + first + "</td>";
 		} else {
-			System.out.println("ERROR: First name is mandatory. Please try again.");
 			return;
 		}
 		
