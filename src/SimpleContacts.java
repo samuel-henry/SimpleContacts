@@ -427,7 +427,7 @@ public class SimpleContacts {
 	    		updateContactInS3();
 	    		
 	    		// publish sns notification
-	    		String message = "{  \"updateType\" : \"edit\", \"itemId\" : " + "\"" + selectedContactId + "\", \"first\" : " + "\"" + first + "\", \"last\" : \"" + last + "\", \"url\" : \"" + "https://s3.amazonaws.com/" + CONTACT_DOMAIN_TITLE + "/" + first + last + selectedContactId + ".html\" }" ;
+	    		String message = "{  \"updateType\" : \"edit\", \"itemName\" : " + "\"" + selectedContactId + "\", \"first\" : " + "\"" + first + "\", \"last\" : \"" + last + "\", \"url\" : \"" + "https://s3.amazonaws.com/" + CONTACT_DOMAIN_TITLE + "/" + first + last + selectedContactId + ".html\" }" ;
 	    		System.out.println(message);
 	    		snsClient.publish(new PublishRequest(UPDATE_TOPIC_ARN, message));
 	    		
@@ -546,7 +546,7 @@ public class SimpleContacts {
 				createContactPageInS3(itemId, first, last, phoneRecords, emailRecords, streetAddress, city, state, zip, tags, birthday);
 				
 				//publish SNS message
-				String message = "{  \"updateType\" : \"create\", \"itemId\" : " + "\"" + itemId + "\", \"first\" : " + "\"" + first + "\", \"last\" : \"" + last + "\", \"url\" : \"" + "https://s3.amazonaws.com/" + CONTACT_DOMAIN_TITLE + "/" + first + last + itemId + ".html\"}" ;
+				String message = "{  \"updateType\" : \"create\", \"itemName\" : " + "\"" + itemId + "\", \"first\" : " + "\"" + first + "\", \"last\" : \"" + last + "\", \"url\" : \"" + "https://s3.amazonaws.com/" + CONTACT_DOMAIN_TITLE + "/" + first + last + itemId + ".html\"}" ;
 				System.out.println(message);
 				snsClient.publish(new PublishRequest(UPDATE_TOPIC_ARN, message));
 			} catch (Exception ex) {
@@ -944,7 +944,7 @@ public class SimpleContacts {
 		s3client.deleteObject(new DeleteObjectRequest(CONTACT_DOMAIN_TITLE, first + last + selectedContactId + ".html"));
 		
 		// publish sns notification
-		String message = "{ \"updateType\" : \"delete\", \"itemId\" : " + "\"" + selectedContactId + "\" }";
+		String message = "{ \"updateType\" : \"delete\", \"itemName\" : " + "\"" + selectedContactId + "\" }";
 		System.out.println(message);
 		snsClient.publish(new PublishRequest(UPDATE_TOPIC_ARN, message));
 	}
