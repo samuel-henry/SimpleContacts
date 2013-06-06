@@ -9,12 +9,14 @@ import java.util.Map.Entry;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClient;
+import com.amazonaws.services.sqs.model.DeleteMessageRequest;
 import com.amazonaws.services.sqs.model.Message;
 import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
 import com.amazonaws.services.sqs.model.ReceiveMessageResult;
@@ -49,7 +51,8 @@ public class SQSPollingFormatter {
 		
 		try {
 			//get credentials from environment variables
-			myCredentials = new DefaultAWSCredentialsProviderChain().getCredentials();
+			//myCredentials = new DefaultAWSCredentialsProviderChain().getCredentials();
+			myCredentials = new EnvironmentVariableCredentialsProvider().getCredentials();
 			sqsClient = new AmazonSQSClient(myCredentials); 
 		} catch (Exception ex) {
 			System.out.println("There was a problem reading your credentials.");
@@ -92,14 +95,13 @@ public class SQSPollingFormatter {
 			System.out.println("Could not create SNS message due to missing input(s)");
 			return false;
 		} else {
-			
+			return true;
 		}
 	}
 
 
 	private static void removeMessageFromQueue(Message msg) {
-
-		
+		sqsClient.deleteMessage(new DeleteMessageRequest().withQueueUrl(QUEUE_URL).withReceiptHandle(msg.getReceiptHandle()));
 	}
 
 
@@ -121,7 +123,7 @@ public class SQSPollingFormatter {
 	* Create a contact's page in S3
 	 * @throws Exception 
 	*********************************************************************/
-	private static boolean createContactPageInS3(Map<String,String> contactInfo) throws Exception {
+	private static boolean createContactPageInS3(Map<String,String> contactInfo) {
 		String url = contactInfo.get(URL_KEY);
 		if (url == null) {
 			System.out.println("Invalid input. URL must be specified to correlate across the system");
@@ -155,23 +157,28 @@ public class SQSPollingFormatter {
 		String newDocument = htmlTemplateBeginning + htmlHeaderRow + htmlDetailRow + htmlTemplateEnding;
 		
 		String s3bucketName = "cspp51083.samuelh.simplecontacts";
-		
-		//create the new HTML file
-		File contactDocument = new File (url);
-		FileWriter fw;
-		fw = new FileWriter(contactDocument);
-		fw.write(newDocument);
-		fw.close();
-		
-		//store HTML file with public accessibility in S3
-		getS3Client().putObject(new PutObjectRequest(s3bucketName, url, contactDocument).withCannedAcl(CannedAccessControlList.PublicRead));
-		
-		System.out.println("Succesfully added " + url + " to your S3 bucket " + s3bucketName);
-		
-		//delete the local file after storing in S3 so it is not retained
-		contactDocument.delete();
-		
-		return true;
+		try {
+			//create the new HTML file
+			File contactDocument = new File (url);
+			FileWriter fw;
+			fw = new FileWriter(contactDocument);
+			fw.write(newDocument);
+			fw.close();
+			
+			//store HTML file with public accessibility in S3
+			getS3Client().putObject(new PutObjectRequest(s3bucketName, url, contactDocument).withCannedAcl(CannedAccessControlList.PublicRead));
+			
+			System.out.println("Succesfully added " + url + " to your S3 bucket " + s3bucketName);
+			
+			//delete the local file after storing in S3 so it is not retained
+			contactDocument.delete();
+
+			return true;
+
+		} catch (Exception ex) {
+			System.out.println("There was a problem creating a contact page in S3 for contact " + first + " " + last);
+			return false;
+		}
 	}
 
 
